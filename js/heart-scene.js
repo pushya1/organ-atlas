@@ -5,7 +5,7 @@ window.createHeartScene = function (lib, container) {
   const { THREE, OrbitControls, RoomEnvironment, mergeVertices } = lib;
   const { parts: PARTS, journey: JOURNEY } = window.HEART;
   const V = (x, y, z) => new THREE.Vector3(x, y, z);
-  const listeners = { select: [], rideStep: [], rideEnd: [] };
+  const listeners = { select: [], rideStep: [], rideEnd: [], rideDone: [] };
   const emit = (name, arg) => listeners[name].forEach((cb) => cb(arg));
 
   // ---------- renderer, camera, lights ----------
@@ -378,23 +378,44 @@ window.createHeartScene = function (lib, container) {
   const APEX = V(0.4, -1.0, 0.5);
 
   const rider = new THREE.Sprite(spriteMat(0xffffff));
-  rider.scale.setScalar(0.42);
+  rider.scale.setScalar(0.65);
   rider.visible = false;
   heart.add(rider);
   const riderLight = new THREE.PointLight(0xffffff, 0, 2.5, 2);
   heart.add(riderLight);
 
+  // A short glowing trail behind the tour's blood cell.
+  const TRAIL = 30;
+  const trailPos = new Float32Array(TRAIL * 3);
+  const trailTint = new Float32Array(TRAIL * 3);
+  const trailAlpha = new Float32Array(TRAIL);
+  const trailGeo = new THREE.BufferGeometry();
+  trailGeo.setAttribute('position', new THREE.BufferAttribute(trailPos, 3));
+  trailGeo.setAttribute('tint', new THREE.BufferAttribute(trailTint, 3));
+  trailGeo.setAttribute('alpha', new THREE.BufferAttribute(trailAlpha, 1));
+  const trailMat = bloodMat.clone();
+  trailMat.uniforms.uSize.value *= 1.8;
+  const trail = new THREE.Points(trailGeo, trailMat);
+  trail.frustumCulled = false;
+  trail.visible = false;
+  heart.add(trail);
+
+  // The tour is one trip, not a loop: in through the vena cava, out to the lungs (where the cell turns red),
+  // back through the left side, then out of the aorta to the body, where it ends.
   const RIDE = [
     { flow: 'svc', first: 0, marks: [[[-0.8, 0.95, 0.02], 1], [VALVE_POS.tricuspidValve, 2], [VALVE_POS.pulmonaryValve, 3]] },
-    { gap: 4, duration: 3 },
+    { gap: 4, duration: 3.5, at: 'svc', from: POOR, to: RICH },
     { flow: 'lpv', first: 5, marks: [[VALVE_POS.mitralValve, 6], [VALVE_POS.aorticValve, 7]] },
-    { gap: 8, duration: 3 },
+    { gap: 8, duration: 3.5, at: 'lpv', from: RICH, to: POOR },
   ];
   RIDE.forEach((seg) => {
     if (seg.flow) seg.marks = seg.marks.map(([p, step]) => ({ u: uNear(flows[seg.flow], p), step }));
   });
   const ride = { active: false, seg: 0, u: 0, t: 0, step: -1 };
   let rideParts = new Set();
+  let rideFade = 0;
+  const riderColor = new THREE.Color();
+  const tmpColor = new THREE.Color();
 
   // ---------- picking ----------
   const raycaster = new THREE.Raycaster();
@@ -521,9 +542,12 @@ window.createHeartScene = function (lib, container) {
 
     // Blood surges when the chambers squeeze and trickles while they refill.
     const speed = (0.3 + 1.5 * v + 0.45 * a) * rate;
-    bloodMat.uniforms.uOpacity.value = flowAmt;
+    // During the tour the general flow fades out so only the one blood cell is moving.
+    rideFade += ((ride.active ? 1 : 0) - rideFade) * Math.min(1, dt * 4);
+    const ambient = flowAmt * (1 - rideFade);
+    bloodMat.uniforms.uOpacity.value = ambient;
     for (const f of Object.values(flows)) {
-      f.points.visible = flowAmt > 0.02;
+      f.points.visible = ambient > 0.02;
       f.progress = (f.progress + (speed * run) / f.length) % 1;
       for (let i = 0; i < f.count; i++) {
         const u = (f.offsets[i] + f.progress) % 1;
@@ -552,7 +576,7 @@ window.createHeartScene = function (lib, container) {
       eVent = p > 0.13 && p < 0.26 ? Math.sin((Math.PI * (p - 0.13)) / 0.13) : 0;
     }
 
-    updateRide(run, speed);
+    updateRide(run, cyc, rate);
 
     // Highlights: selected part pulses, ride parts glow, hover tints; electricity flashes yellow.
     for (const [key, mat] of Object.entries(materials)) {
@@ -580,29 +604,37 @@ window.createHeartScene = function (lib, container) {
     renderer.render(scene, camera);
   }
 
-  function updateRide(run, speed) {
+  function updateRide(run, cyc, rate) {
     rider.visible = false;
+    trail.visible = false;
     riderLight.intensity = 0;
     if (!ride.active) return;
     const seg = RIDE[ride.seg];
     let step;
     if (seg.flow) {
       const f = flows[seg.flow];
-      ride.u += (Math.max(0.55, speed) * 0.75 * run) / f.length;
+      // Slow and steady, with a small push on every squeeze, so it is easy to follow.
+      ride.u += ((0.25 + 0.5 * cyc.ventricles + 0.15 * cyc.atria) * rate * run) / f.length;
       if (ride.u >= 1) return nextSegment();
       step = seg.first;
       for (const m of seg.marks) if (ride.u >= m.u) step = m.step;
       pointOnTable(f.table, ride.u, rider.position);
-      rider.visible = true;
-      rider.material.color.setHex(f.color);
-      riderLight.position.copy(rider.position);
-      riderLight.color.setHex(f.color);
-      riderLight.intensity = 3;
+      riderColor.setHex(f.color);
+      drawTrail(f, ride.u);
     } else {
       ride.t += run;
       if (ride.t >= seg.duration) return nextSegment();
       step = seg.gap;
+      // Waits at the edge of the picture while it visits the lungs or body, changing colour as it swaps gases.
+      pointOnTable(flows[seg.at].table, 0.96, rider.position);
+      riderColor.setHex(seg.from).lerp(tmpColor.setHex(seg.to), THREE.MathUtils.smoothstep(ride.t / seg.duration, 0.2, 0.8));
     }
+    rider.visible = true;
+    rider.material.color.copy(riderColor);
+    rider.scale.setScalar(0.65 + 0.12 * cyc.ventricles);
+    riderLight.position.copy(rider.position);
+    riderLight.color.copy(riderColor);
+    riderLight.intensity = 5;
     if (step !== ride.step) {
       ride.step = step;
       rideParts = new Set(JOURNEY[step].parts);
@@ -610,10 +642,35 @@ window.createHeartScene = function (lib, container) {
     }
   }
 
+  function drawTrail(f, u) {
+    trail.visible = true;
+    for (let i = 0; i < TRAIL; i++) {
+      const tu = u - i * 0.004;
+      pointOnTable(f.table, Math.max(0, tu), tmp);
+      trailPos.set([tmp.x, tmp.y, tmp.z], i * 3);
+      trailTint.set([riderColor.r, riderColor.g, riderColor.b], i * 3);
+      trailAlpha[i] = tu < 0 ? 0 : 1 - i / TRAIL;
+    }
+    trailGeo.attributes.position.needsUpdate = true;
+    trailGeo.attributes.tint.needsUpdate = true;
+    trailGeo.attributes.alpha.needsUpdate = true;
+  }
+
   function nextSegment() {
-    ride.seg = (ride.seg + 1) % RIDE.length;
+    if (ride.seg === RIDE.length - 1) {
+      endRide();
+      emit('rideDone');
+      return;
+    }
+    ride.seg++;
     ride.u = 0;
     ride.t = 0;
+  }
+
+  function endRide() {
+    ride.active = false;
+    ride.step = -1;
+    rideParts = new Set();
   }
 
   return {
@@ -629,11 +686,10 @@ window.createHeartScene = function (lib, container) {
     startRide() {
       Object.assign(ride, { active: true, seg: 0, u: 0, t: 0, step: -1 });
       flowTarget = 1;
+      tweenCamera(HOME.clone().sub(controls.target)); // start from the familiar front view
     },
     stopRide() {
-      ride.active = false;
-      ride.step = -1;
-      rideParts = new Set();
+      endRide();
       emit('rideEnd');
     },
     get riding() {

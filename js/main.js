@@ -261,19 +261,39 @@
   );
 
   // ---------- follow a blood cell ----------
+  let doneTimer = null;
+
   function setRiding(on) {
     if (!scene) return;
+    clearTimeout(doneTimer);
     if (on) {
       scene.select(null);
       setMode('flow');
       scene.startRide();
       scrollToViewer();
     } else scene.stopRide();
+    rideButton(on);
+    $('#rideCaption').hidden = !on;
+  }
+
+  function rideButton(on) {
     $('#rideBtn').innerHTML = on
       ? '■ <span class="txt-long">Stop the tour</span><span class="txt-short">Stop tour</span>'
       : '▶ <span class="txt-long">Follow a blood cell</span><span class="txt-short">Blood cell tour</span>';
     $('#rideBtn').classList.toggle('active', on);
-    $('#rideCaption').hidden = !on;
+  }
+
+  // The tour ends by itself once the blood cell has left for the body.
+  function finishRide() {
+    rideButton(false);
+    $('#rideStepNo').textContent = 'Trip complete 🎉';
+    $('#rideTitle').textContent = 'All the way around!';
+    $('#rideText').textContent = 'The blood cell went body → right side of the heart → lungs → left side of the heart → body. Press “Follow a blood cell” to watch it again.';
+    $('#rideCaption').classList.remove('blood-poor', 'blood-swap');
+    $('#rideCaption').classList.add('blood-rich');
+    $$('#rideDots i').forEach((d) => d.classList.add('on'));
+    $$('#journeyList .step').forEach((li) => li.classList.remove('active'));
+    doneTimer = setTimeout(() => ($('#rideCaption').hidden = true), 7000);
   }
   $('#rideBtn').addEventListener('click', () => setRiding(!scene?.riding));
   $('#rideBtn2').addEventListener('click', () => setRiding(true));
@@ -419,6 +439,7 @@
     scene.on('select', showPart);
     scene.on('rideStep', showRideStep);
     scene.on('rideEnd', () => $$('#journeyList .step').forEach((li) => li.classList.remove('active')));
+    scene.on('rideDone', finishRide);
     scene.setElectric(state.electric);
     $('#zoomIn').addEventListener('click', () => scene.zoom(0.8));
     $('#zoomOut').addEventListener('click', () => scene.zoom(1.25));
