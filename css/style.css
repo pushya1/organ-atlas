@@ -116,10 +116,6 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 .swatch.poor { background: var(--blue); box-shadow: 0 0 10px var(--blue); }
 .swatch.rich { background: var(--red); box-shadow: 0 0 10px var(--red); }
 
-.monitor { top: 24px; right: 24px; width: 260px; padding: 12px 14px; }
-.monitor-top, .monitor-bottom { display: flex; align-items: center; gap: 8px; font-size: 0.82rem; }
-.monitor-top { font-weight: 600; }
-.monitor-bottom { justify-content: space-between; color: var(--muted); margin-top: 4px; }
 .phase-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--green); box-shadow: 0 0 10px var(--green); display: inline-block; }
 body[data-phase='atrial'] .phase-dot { background: var(--gold); box-shadow: 0 0 10px var(--gold); }
 body[data-phase='ventricular'] .phase-dot { background: var(--red); box-shadow: 0 0 12px var(--red); }
@@ -143,7 +139,7 @@ body[data-phase='ventricular'] .phase-dot { background: var(--red); box-shadow: 
 }
 .ecg.big { height: 180px; }
 
-.part-card { top: 190px; right: 24px; width: 320px; padding: 20px 22px; animation: slide-in 0.35s ease-out; }
+.part-card { top: 24px; right: 24px; width: 320px; padding: 20px 22px; animation: slide-in 0.35s ease-out; }
 .part-card h2 { font-size: 1.5rem; margin: 10px 0 2px; }
 .part-tag { color: var(--gold); font-weight: 600; font-size: 0.9rem; }
 .part-card p { font-size: 0.92rem; color: #d6d9f2; }
@@ -503,7 +499,7 @@ main { max-width: 1160px; margin: 0 auto; padding: 0 24px; }
   .viewer > .controls { align-self: center; }
   .viewer:has(#rideCaption:not([hidden])) .intro { display: block; }
   .viewer:has(#partCard:not([hidden])) .ride-caption { display: none; }
-  .zoom { top: 170px; bottom: auto; right: 16px; }
+  .zoom { top: 24px; bottom: auto; right: 16px; }
   .scroll-hint { display: none; }
 }
 
@@ -517,16 +513,12 @@ main { max-width: 1160px; margin: 0 auto; padding: 0 24px; }
 
   .viewer { height: calc(100vh - 53px); height: calc(100svh - 53px); min-height: 440px; scroll-margin-top: 53px; }
 
-  .intro { top: 10px; left: 10px; right: auto; max-width: calc(100% - 172px); padding: 10px 12px; border-radius: 14px; }
+  .intro { top: 10px; left: 10px; right: auto; max-width: calc(100% - 20px); padding: 10px 12px; border-radius: 14px; }
   .intro .eyebrow, .intro > p:not(.eyebrow) { display: none; }
   .intro h1 { font-size: 1.35rem; margin-bottom: 6px; }
   .legend { flex-direction: column; gap: 2px; font-size: 0.68rem; white-space: nowrap; }
   .swatch { width: 9px; height: 9px; }
 
-  .monitor { top: 10px; right: 10px; bottom: auto; width: 150px; padding: 8px 10px; border-radius: 14px; }
-  .monitor-top { font-size: 0.72rem; }
-  .monitor .ecg { height: 36px; margin-top: 4px; background-size: 9px 9px; }
-  .monitor-bottom { font-size: 0.7rem; margin-top: 2px; }
 
   .viewer > .controls {
     align-self: stretch;
@@ -567,8 +559,8 @@ main { max-width: 1160px; margin: 0 auto; padding: 0 24px; }
   .part-card .part-tag, .ride-caption h3 { margin-bottom: 2px; }
   .part-card .fact { margin-bottom: 4px; }
   /* While a card or step is showing, drop the title so the heart keeps as much room as possible. */
-  .viewer:has(#partCard:not([hidden])) :is(.intro, .monitor),
-  .viewer:has(#rideCaption:not([hidden])) :is(.intro, .monitor) { display: none; }
+  .viewer:has(#partCard:not([hidden])) .intro,
+  .viewer:has(#rideCaption:not([hidden])) .intro { display: none; }
   .part-card h2 { font-size: 1.2rem; margin-top: 6px; }
   .part-card p { font-size: 0.86rem; }
   .ride-caption h3 { font-size: 1.05rem; }
@@ -606,7 +598,6 @@ main { max-width: 1160px; margin: 0 auto; padding: 0 24px; }
 
 @media (max-width: 380px) {
   .intro h1 { font-size: 1.2rem; }
-  .monitor { width: 132px; }
   .segmented button { padding: 6px 7px; }
 }
 

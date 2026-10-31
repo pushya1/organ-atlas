@@ -1,11 +1,11 @@
-/* Page wiring: builds the content from heart-data.js, runs the heartbeat clock, the ECG monitors,
+/* Page wiring: builds the content from heart-data.js, runs the heartbeat clock, the ECG monitor,
    sound, and every interactive piece. The 3D scene plugs in once Three.js has loaded. */
 (function () {
   const H = window.HEART;
   const $ = (s, el = document) => el.querySelector(s);
   const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 
-  const state = { bpm: 72, playing: true, phase: 0.6, beats: 0, sound: false, electric: false };
+  const state = { bpm: 72, playing: true, phase: 0.6, sound: false, electric: false };
   let scene = null;
 
   const BLOOD_LABEL = { poor: 'Oxygen-poor blood', rich: 'Oxygen-rich blood', swap: 'Gas swap' };
@@ -132,18 +132,16 @@
       ctx.stroke();
     }
   }
-  const ecgMini = new EcgMonitor($('#ecgMini'), 3, '#5dffa8');
   const ecgBig = new EcgMonitor($('#ecgBig'), 4, '#5dffa8');
 
   // ---------- sound ----------
   let audio = null;
   function thump(kind) {
-    for (const el of [$('#beatWord'), $('#beatWord2')]) {
-      el.textContent = kind === 'lub' ? 'LUB' : 'DUB';
-      el.classList.remove('pop');
-      void el.offsetWidth;
-      el.classList.add('pop');
-    }
+    const word = $('#beatWord2');
+    word.textContent = kind === 'lub' ? 'LUB' : 'DUB';
+    word.classList.remove('pop');
+    void word.offsetWidth;
+    word.classList.add('pop');
     if (!state.sound) return;
     audio ||= new (window.AudioContext || window.webkitAudioContext)();
     const t = audio.currentTime;
@@ -373,7 +371,6 @@
     if (cyc.phase !== lastPhase) {
       lastPhase = cyc.phase;
       const name = H.phases[cyc.phase].name;
-      $('#phaseName').textContent = name;
       $('#phaseName2').textContent = name;
       $$('[data-phase]').forEach((c) => c.classList.toggle('active', c.dataset.phase === cyc.phase));
       document.body.dataset.phase = cyc.phase;
@@ -398,12 +395,7 @@
       if (crossed(p0, dp, H.timing.lub)) thump('lub');
       if (crossed(p0, dp, H.timing.dub)) thump('dub');
       state.phase += dp;
-      if (state.phase >= 1) {
-        state.phase -= 1;
-        state.beats++;
-        $('#beatCount').textContent = state.beats;
-      }
-      ecgMini.push(p0, dp, dt);
+      if (state.phase >= 1) state.phase -= 1;
       ecgBig.push(p0, dp, dt);
     }
     const cyc = H.cycle(state.phase);
