@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Organ Atlas · The Human Heart</title>
+  <meta name="description" content="An interactive 3D heart that beats, pumps blood and explains how it works." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css?v=6" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#top">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.6-9.3C.9 8.2 3 4.5 6.6 4.5c2.1 0 3.6 1.2 5.4 3.2 1.8-2 3.3-3.2 5.4-3.2 3.6 0 5.7 3.7 4.2 7.2C19.5 16.4 12 21 12 21z"/></svg>
+      Organ Atlas
+    </a>
+    <nav class="organ-tabs" aria-label="Organs">
+      <a class="organ-tab active" href="#top" aria-current="page">Heart</a>
+      <span class="organ-tab soon">Lungs <small>soon</small></span>
+      <span class="organ-tab soon">Brain <small>soon</small></span>
+      <span class="organ-tab soon">Kidneys <small>soon</small></span>
+      <span class="organ-tab soon">Stomach <small>soon</small></span>
+    </nav>
+  </header>
+
+  <!-- ===== 3D viewer ===== -->
+  <section class="viewer" id="top">
+    <div id="scene" class="scene" aria-label="Interactive 3D model of the heart"></div>
+
+    <div class="intro panel">
+      <p class="eyebrow">Organ 01 · Circulatory system</p>
+      <h1>The Human <span>Heart</span></h1>
+      <p>A pump about the size of your fist that never takes a day off. <b>Drag</b> to spin it and <b>tap any part</b> to find out what it does.</p>
+      <div class="legend">
+        <span><i class="swatch poor"></i>Oxygen-poor blood</span>
+        <span><i class="swatch rich"></i>Oxygen-rich blood</span>
+      </div>
+    </div>
+
+    <div class="monitor panel">
+      <div class="monitor-top">
+        <span class="phase-dot"></span>
+        <span id="phaseName">Relax &amp; refill</span>
+        <span class="beat-word" id="beatWord"></span>
+      </div>
+      <canvas id="ecgMini" class="ecg"></canvas>
+      <div class="monitor-bottom">
+        <span><b id="bpmReadout">72</b> BPM</span>
+        <span>Beats <b id="beatCount">0</b></span>
+      </div>
+    </div>
+
+    <aside class="part-card panel" id="partCard" hidden>
+      <button class="icon-btn close" id="partClose" aria-label="Close">×</button>
+      <span class="blood-badge" id="partBadge"></span>
+      <h2 id="partName"></h2>
+      <p class="part-tag" id="partTag"></p>
+      <div class="details">
+        <p id="partDesc"></p>
+        <p class="fact" id="partFact"></p>
+      </div>
+      <button class="more-btn" aria-expanded="false">Read more ▾</button>
+    </aside>
+
+    <div class="ride-caption panel" id="rideCaption" hidden>
+      <div class="ride-dots" id="rideDots"></div>
+      <p class="eyebrow" id="rideStepNo"></p>
+      <h3 id="rideTitle"></h3>
+      <div class="details"><p id="rideText"></p></div>
+      <button class="more-btn" aria-expanded="false">Read more ▾</button>
+    </div>
+
+    <div class="controls panel">
+      <button class="icon-btn" id="playBtn" aria-label="Pause heartbeat" title="Pause / play">❚❚</button>
+      <label class="bpm-control">
+        <span>Heart rate</span>
+        <input type="range" id="bpm" min="40" max="180" value="72" />
+      </label>
+      <div class="segmented" role="group" aria-label="View mode">
+        <button data-mode="solid">Solid</button>
+        <button data-mode="flow" class="active">Blood flow</button>
+      </div>
+      <button class="toggle" id="electricToggle" aria-pressed="false" aria-label="Electricity">⚡<span class="txt"> Electricity</span></button>
+      <button class="toggle" id="soundToggle" aria-pressed="false" aria-label="Sound">🔈<span class="txt"> Sound</span></button>
+      <button class="primary" id="rideBtn">▶ <span class="txt-long">Follow a blood cell</span><span class="txt-short">Blood cell tour</span></button>
+    </div>
+
+    <div class="zoom">
+      <button class="icon-btn" id="zoomIn" aria-label="Zoom in">+</button>
+      <button class="icon-btn" id="zoomOut" aria-label="Zoom out">−</button>
+      <button class="icon-btn" id="resetView" aria-label="Reset view" title="Reset view">⟲</button>
+    </div>
+
+    <div class="loading" id="loading">
+      <div class="pulse-heart">♥</div>
+      <p id="loadingText">Loading the 3D heart…</p>
+    </div>
+    <a class="scroll-hint" href="#facts">Scroll to learn how it works ↓</a>
+  </section>
+
+  <main>
+    <!-- ===== 01 Facts ===== -->
+    <section class="section" id="facts">
+      <div class="section-head reveal">
+        <p class="eyebrow">01 · Meet your heart</p>
+        <h2>A small engine with a huge job</h2>
+        <p>Your heart sits in the middle of your chest, tilted a little to the left and protected by your ribs. Its job is to keep blood moving, so every cell in your body gets the oxygen and food it needs.</p>
+      </div>
+      <div class="stats">
+        <div class="stat reveal"><b data-count="100000" data-prefix="~">0</b><span>beats every day</span></div>
+        <div class="stat reveal"><b data-count="7000" data-prefix="~" data-suffix=" L">0</b><span>of blood pumped every day, enough to fill about 35 bathtubs</span></div>
+        <div class="stat reveal"><b data-count="300" data-suffix=" g">0</b><span>is roughly how much an adult heart weighs, about the same as a grapefruit</span></div>
+        <div class="stat reveal"><b data-count="3" data-suffix=" billion">0</b><span>beats in an average lifetime</span></div>
+      </div>
+      <div class="live-counter panel reveal">
+        <span class="mini-heart" id="miniHeart">♥</span>
+        <p>While you’ve been on this page, your heart has beaten about <b id="yourBeats">0</b> times.<small>Estimated at 75 beats per minute.</small></p>
+      </div>
+    </section>
+
+    <!-- ===== 02 Chambers ===== -->
+    <section class="section" id="chambers">
+      <div class="section-head reveal">
+        <p class="eyebrow">02 · Four rooms, two pumps</p>
+        <h2>The four chambers</h2>
+        <p>The heart is really <b>two pumps side by side</b>. The right side sends blood to the lungs; the left side sends it to the whole body. A wall of muscle called the <b>septum</b> keeps them apart. Each side has a small top chamber (an <b>atrium</b>) that receives blood and a big bottom chamber (a <b>ventricle</b>) that pumps it out.</p>
+      </div>
+      <p class="note reveal">👀 Heart diagrams show the heart as if you’re facing someone, so the heart’s <b>right</b> side appears on the <b>left</b> of the picture.</p>
+      <div class="chamber-grid" id="chamberGrid"></div>
+      <h3 class="sub reveal">Also meet the pipes and doors</h3>
+      <div class="chips reveal" id="partChips"></div>
+    </section>
+
+    <!-- ===== 03 Journey ===== -->
+    <section class="section" id="journey">
+      <div class="section-head reveal">
+        <p class="eyebrow">03 · The journey of blood</p>
+        <h2>Follow one blood cell around your body</h2>
+        <p>Blood travels in a figure of eight: a short loop to the <b>lungs</b> to pick up oxygen, and a long loop around the <b>body</b> to deliver it. Every complete trip passes through the heart twice.</p>
+      </div>
+      <div class="journey-layout">
+        <figure class="loop-diagram panel reveal">
+          <svg viewBox="0 0 320 430" role="img" aria-label="Diagram of the double circulation: heart to lungs and back, then heart to body and back">
+            <defs>
+              <marker id="arrowBlue" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#5b8cff"/></marker>
+              <marker id="arrowRed" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#ff4d6d"/></marker>
+            </defs>
+            <rect x="80" y="18" width="160" height="66" rx="18" class="box lungs"/>
+            <text x="160" y="46" class="box-title">Lungs</text>
+            <text x="160" y="66" class="box-sub">CO₂ out · O₂ in</text>
+
+            <rect x="96" y="178" width="64" height="76" rx="14" class="box right-heart"/>
+            <rect x="160" y="178" width="64" height="76" rx="14" class="box left-heart"/>
+            <text x="128" y="212" class="box-title small">Right</text>
+            <text x="128" y="230" class="box-sub">side</text>
+            <text x="192" y="212" class="box-title small">Left</text>
+            <text x="192" y="230" class="box-sub">side</text>
+            <text x="160" y="272" class="box-sub">HEART</text>
+
+            <rect x="60" y="344" width="200" height="66" rx="18" class="box body"/>
+            <text x="160" y="372" class="box-title">Body</text>
+            <text x="160" y="392" class="box-sub">O₂ used · CO₂ made</text>
+
+            <path d="M120 178 C112 140 104 112 110 88" class="pipe blue" marker-end="url(#arrowBlue)"/>
+            <path d="M210 88 C216 112 208 140 200 178" class="pipe red" marker-end="url(#arrowRed)"/>
+            <path d="M200 254 C214 292 244 312 236 340" class="pipe red" marker-end="url(#arrowRed)"/>
+            <path d="M84 340 C76 312 106 292 120 258" class="pipe blue" marker-end="url(#arrowBlue)"/>
+            <path d="M120 178 C112 140 104 112 110 88" class="flow blue"/>
+            <path d="M210 88 C216 112 208 140 200 178" class="flow red"/>
+            <path d="M200 254 C214 292 244 312 236 340" class="flow red"/>
+            <path d="M84 340 C76 312 106 292 120 258" class="flow blue"/>
+            <text x="44" y="138" class="loop-label">Lung loop</text>
+            <text x="276" y="300" class="loop-label">Body loop</text>
+          </svg>
+        </figure>
+        <div>
+          <ol class="journey-list" id="journeyList"></ol>
+          <button class="primary big" id="rideBtn2">▶ Watch a blood cell make the trip in 3D</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 04 Heartbeat ===== -->
+    <section class="section" id="heartbeat">
+      <div class="section-head reveal">
+        <p class="eyebrow">04 · Lub-dub</p>
+        <h2>Inside one heartbeat</h2>
+        <p>Each heartbeat is a perfectly timed squeeze and relax that lasts less than a second. The monitor below is live, so it moves in time with the 3D heart above.</p>
+      </div>
+      <div class="ecg-panel panel reveal">
+        <div class="ecg-head">
+          <span><span class="phase-dot"></span> <b id="phaseName2">Relax &amp; refill</b></span>
+          <span class="beat-word big" id="beatWord2"></span>
+          <span><b id="bpmReadout2">72</b> beats per minute</span>
+        </div>
+        <canvas id="ecgBig" class="ecg big"></canvas>
+        <div class="ecg-legend">
+          <div><b>P wave</b> The electrical signal spreads over the atria, so they squeeze.</div>
+          <div><b>QRS spike</b> The signal races through the ventricles, so they squeeze hard.</div>
+          <div><b>T wave</b> The ventricles recharge, ready for the next beat.</div>
+        </div>
+      </div>
+      <div class="phase-cards" id="phaseCards"></div>
+      <div class="valve-board panel reveal">
+        <div>
+          <h3>Listen to the valves</h3>
+          <p>The sound a doctor hears through a stethoscope is the valves closing. <b>LUB</b> is the tricuspid and mitral valves shutting; <b>DUB</b> is the pulmonary and aortic valves shutting.</p>
+          <button class="toggle" id="soundToggle2" aria-pressed="false">🔈 Turn on heartbeat sound</button>
+        </div>
+        <div class="valves">
+          <div class="valve" data-valve="av"><span>Tricuspid</span><b>OPEN</b></div>
+          <div class="valve" data-valve="av"><span>Mitral</span><b>OPEN</b></div>
+          <div class="valve" data-valve="sl"><span>Pulmonary</span><b>SHUT</b></div>
+          <div class="valve" data-valve="sl"><span>Aortic</span><b>SHUT</b></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 05 Electricity ===== -->
+    <section class="section" id="electric">
+      <div class="section-head reveal">
+        <p class="eyebrow">05 · The spark</p>
+        <h2>The heart’s own electricity</h2>
+        <p>Your heart doesn’t wait for your brain to tell it to beat. It has its own built-in electrical wiring that fires about once every second.</p>
+      </div>
+      <ol class="spark-steps">
+        <li class="panel reveal"><span class="num">1</span><h3>The pacemaker fires</h3><p>The <b>SA node</b>, a tiny patch of special cells in the right atrium, sends out an electrical signal.</p></li>
+        <li class="panel reveal"><span class="num">2</span><h3>Atria squeeze</h3><p>The signal spreads across both atria like a ripple, and they contract.</p></li>
+        <li class="panel reveal"><span class="num">3</span><h3>A tiny pause</h3><p>The <b>AV node</b> holds the signal for about a tenth of a second, so the ventricles have time to fill up.</p></li>
+        <li class="panel reveal"><span class="num">4</span><h3>Ventricles squeeze</h3><p>The signal races down the septum and spreads through the ventricle walls. They squeeze from the bottom up, like squeezing toothpaste out of a tube.</p></li>
+      </ol>
+      <button class="primary big reveal" id="electricBtn2">⚡ Show the electricity in 3D</button>
+    </section>
+
+    <!-- ===== 06 Try it ===== -->
+    <section class="section" id="pulse">
+      <div class="section-head reveal">
+        <p class="eyebrow">06 · Try it yourself</p>
+        <h2>Measure your own heartbeat</h2>
+      </div>
+      <div class="try-grid">
+        <div class="panel try-card reveal">
+          <h3>Find your pulse</h3>
+          <p>Place two fingers on the inside of your wrist, just below your thumb. Each time you feel a beat, tap the button.</p>
+          <button class="tap-btn" id="tapBtn"><span>♥</span>Tap with each beat</button>
+          <p class="tap-result" id="tapResult">Tap at least 5 times…</p>
+          <button class="toggle" id="useTap" disabled>Make the 3D heart beat at my rate</button>
+        </div>
+        <div class="panel try-card reveal">
+          <h3>What changes your heart rate?</h3>
+          <div class="activity-btns" id="activityBtns">
+            <button data-bpm="55">😴 Sleeping</button>
+            <button data-bpm="72" class="active">🧍 Resting</button>
+            <button data-bpm="100">🚶 Walking</button>
+            <button data-bpm="150">🏃 Running</button>
+          </div>
+          <div class="activity-view">
+            <svg class="activity-heart" id="activityHeart" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.6-9.3C.9 8.2 3 4.5 6.6 4.5c2.1 0 3.6 1.2 5.4 3.2 1.8-2 3.3-3.2 5.4-3.2 3.6 0 5.7 3.7 4.2 7.2C19.5 16.4 12 21 12 21z"/></svg>
+            <div><b class="activity-bpm" id="activityBpm">72</b><span>beats per minute</span></div>
+          </div>
+          <p id="activityText"></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 07 Healthy ===== -->
+    <section class="section" id="healthy">
+      <div class="section-head reveal">
+        <p class="eyebrow">07 · Look after it</p>
+        <h2>Keep your heart happy</h2>
+      </div>
+      <div class="tips">
+        <div class="tip panel reveal"><span>🏃</span><h3>Move every day</h3><p>Aim for about an hour of activity that makes you a bit out of breath. Your heart is a muscle, and exercise makes it stronger.</p></div>
+        <div class="tip panel reveal"><span>🥦</span><h3>Eat colourful food</h3><p>Fruit, vegetables, whole grains and nuts help keep your blood vessels clear. Go easy on salty snacks and sugary drinks.</p></div>
+        <div class="tip panel reveal"><span>😴</span><h3>Sleep well</h3><p>Your heart rate slows while you sleep, giving your heart a rest. Most young people need 8–10 hours.</p></div>
+        <div class="tip panel reveal"><span>🚭</span><h3>Say no to smoking and vaping</h3><p>Smoke and nicotine damage blood vessels and make the heart work much harder.</p></div>
+        <div class="tip panel reveal"><span>💧</span><h3>Drink water</h3><p>Blood is about half water. Staying hydrated makes it easier for your heart to pump.</p></div>
+        <div class="tip panel reveal"><span>😄</span><h3>Laugh and relax</h3><p>Stress makes your heart race. Time with friends, hobbies and a good laugh are good for it.</p></div>
+      </div>
+    </section>
+
+    <!-- ===== 08 Quiz ===== -->
+    <section class="section" id="quiz">
+      <div class="section-head reveal">
+        <p class="eyebrow">08 · Test yourself</p>
+        <h2>Quick heart quiz</h2>
+        <p>Score: <b id="quizScore">0 / 0</b></p>
+      </div>
+      <div class="quiz" id="quizList"></div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p><b>Coming next in Organ Atlas:</b> Lungs · Brain · Kidneys · Stomach</p>
+    <p class="muted">Made for learning. This is a simplified model and not medical advice.</p>
+  </footer>
+
+  <script src="js/heart-data.js?v=6" defer></script>
+  <script src="js/heart-scene.js?v=6" defer></script>
+  <script src="js/main.js?v=6" defer></script>
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+    import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
+
+    window.__three = { THREE, OrbitControls, RoomEnvironment, mergeVertices };
+    window.dispatchEvent(new Event('three-ready'));
+  </script>
+</body>
+</html>
